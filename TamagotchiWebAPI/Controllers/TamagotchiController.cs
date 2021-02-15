@@ -28,7 +28,16 @@ namespace TamagotchiWebAPI.Controllers
         [HttpGet]
         public PlayerDTO Login([FromQuery] string username, [FromQuery] string pass)
         {
-            Player p = context.Login(username, pass);
+            Player p;
+            try 
+            {
+                 p = context.Login(username, pass);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            
 
             //Check user name and password
             if (p != null)
@@ -74,25 +83,34 @@ namespace TamagotchiWebAPI.Controllers
         [HttpGet]
         public AnimalDTO CreateNewAnimal([FromQuery] string name)
         {
-            PlayerDTO pDTO = HttpContext.Session.GetObject<PlayerDTO>("player");
-            if (pDTO != null)
+            try
             {
-                Animal a = Animal.CreateAnimal(name, pDTO.PlayerId);
-                context.AddAnimal(a);
-                if (GetActiveAnimal() != null)
+                PlayerDTO pDTO = HttpContext.Session.GetObject<PlayerDTO>("player");
+                if (pDTO != null)
                 {
-                    context.KillActiveAnimal(pDTO.PlayerId);
+                    Animal a = Animal.CreateAnimal(name, pDTO.PlayerId);
+                    context.AddAnimal(a);
+                    if (GetActiveAnimal() != null)
+                    {
+                        context.KillActiveAnimal(pDTO.PlayerId);
+                    }
+                    context.SetActiveAnimal(a, pDTO.PlayerId);
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
+                    return new AnimalDTO(a);
                 }
-                context.SetActiveAnimal(a, pDTO.PlayerId);
-                Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
-                return new AnimalDTO(a);
-            }
-            else
-            {
-                Response.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
-                return null;
+                else
+                {
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
+                    return null;
 
+                }
             }
+            catch (Exception)
+            {
+                Response.StatusCode = (int)System.Net.HttpStatusCode.Conflict;
+                return null;
+            }
+            
         }
 
         [Route("GetActiveAnimal")]
@@ -102,8 +120,18 @@ namespace TamagotchiWebAPI.Controllers
             PlayerDTO pDTO = HttpContext.Session.GetObject<PlayerDTO>("player");
             if (pDTO != null)
             {
+                Animal a;
                 int id = pDTO.PlayerId;
-                Animal a = context.GetActiveAnimal(id);
+                try 
+                {
+                    a = context.GetActiveAnimal(id);
+                }
+                catch (Exception)
+                {
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.Conflict;
+                    return null;
+                }
+                
                 if (a == null)
                 {
                     Response.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
@@ -141,7 +169,16 @@ namespace TamagotchiWebAPI.Controllers
                     DateOfBirth = player.DateOfBirth,
                     ActiveAnimal = player.ActiveAnimal
                 };
-                context.AddPlayer(p);
+                try
+                {
+                    context.AddPlayer(p);
+                }
+                catch (Exception)
+                {
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.Conflict;
+                    return false;
+                }
+
                 Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
                 return true;
             }
@@ -176,13 +213,22 @@ namespace TamagotchiWebAPI.Controllers
             PlayerDTO pDTO = HttpContext.Session.GetObject<PlayerDTO>("player");
             if (pDTO != null)
             {
-                Player p = context.Login(pDTO.Username, pDTO.PWord);
-                p.PWord = pass;
-                context.SaveChanges();
-                pDTO.PWord = pass;
-                HttpContext.Session.SetObject("player", pDTO);
-                Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
-                return true;
+                try
+                {
+                    Player p = context.Login(pDTO.Username, pDTO.PWord);
+                    p.PWord = pass;
+                    context.SaveChanges();
+                    pDTO.PWord = pass;
+                    HttpContext.Session.SetObject("player", pDTO);
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
+                    return true;
+                }
+                catch (Exception)
+                {
+                    Response.StatusCode = (int)System.Net.HttpStatusCode.Conflict;
+                    return false;
+                }
+               
             }
             else
             {
